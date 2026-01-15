@@ -1,105 +1,176 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useCallback } from 'react';
+import confetti from 'canvas-confetti';
 
-interface BingoSquare {
-  id: number;
-  text: string;
-  completed: boolean;
-  isCenter: boolean;
+export type BingoTheme = 'minimal-pink' | 'sage-green' | 'bold-yellow';
+
+interface BingoCardProps {
+  title?: string;
+  theme?: BingoTheme;
+  goals?: string[];
 }
 
-export default function BingoCard() {
-  const [squares, setSquares] = useState<BingoSquare[]>(
-    Array.from({ length: 25 }, (_, i) => ({
-      id: i,
-      text: i === 12 ? 'BINGO' : '',
-      completed: i === 12,
-      isCenter: i === 12
-    }))
-  );
+export const themeStyles = {
+  'minimal-pink': {
+    page: 'bg-[#FDF2F0]',
+    card: 'bg-[#FDF2F0]',
+    border: 'border-[#8B2346]',
+    text: 'text-[#8B2346]',
+    textHex: '#8B2346',
+    cellCompleted: 'bg-[#F5D5D0]',
+    cellHover: 'hover:bg-[#F5E0DC]',
+    buttonActive: 'bg-[#8B2346] text-white',
+    buttonInactive: 'bg-white/50 text-[#8B2346] border border-[#8B2346]/30',
+  },
+  'sage-green': {
+    page: 'bg-[#F2F5F0]',
+    card: 'bg-[#F2F5F0]',
+    border: 'border-[#4A6741]',
+    text: 'text-[#4A6741]',
+    textHex: '#4A6741',
+    cellCompleted: 'bg-[#D5E5D0]',
+    cellHover: 'hover:bg-[#E0EBDC]',
+    buttonActive: 'bg-[#4A6741] text-white',
+    buttonInactive: 'bg-white/50 text-[#4A6741] border border-[#4A6741]/30',
+  },
+  'bold-yellow': {
+    page: 'bg-[#FFF8E7]',
+    card: 'bg-[#FFF8E7]',
+    border: 'border-[#B8860B]',
+    text: 'text-[#B8860B]',
+    textHex: '#B8860B',
+    cellCompleted: 'bg-[#FFE4B5]',
+    cellHover: 'hover:bg-[#FFECC4]',
+    buttonActive: 'bg-[#B8860B] text-white',
+    buttonInactive: 'bg-white/50 text-[#B8860B] border border-[#B8860B]/30',
+  },
+};
 
-  const [bingoLines, setBingoLines] = useState<number[][]>([]);
-  const [showCelebration, setShowCelebration] = useState(false);
+const winningLines = [
+  [0, 1, 2, 3, 4],
+  [5, 6, 7, 8, 9],
+  [10, 11, 12, 13, 14],
+  [15, 16, 17, 18, 19],
+  [20, 21, 22, 23, 24],
+  [0, 5, 10, 15, 20],
+  [1, 6, 11, 16, 21],
+  [2, 7, 12, 17, 22],
+  [3, 8, 13, 18, 23],
+  [4, 9, 14, 19, 24],
+  [0, 6, 12, 18, 24],
+  [4, 8, 12, 16, 20],
+];
 
-  const checkBingo = () => {
-    const lines: number[][] = [];
-    
-    for (let i = 0; i < 5; i++) {
-      lines.push([i * 5, i * 5 + 1, i * 5 + 2, i * 5 + 3, i * 5 + 4]);
-    }
-    
-    for (let i = 0; i < 5; i++) {
-      lines.push([i, i + 5, i + 10, i + 15, i + 20]);
-    }
-    
-    lines.push([0, 6, 12, 18, 24]);
-    lines.push([4, 8, 12, 16, 20]);
+const defaultGoals = Array(25).fill('');
 
-    const completedLines = lines.filter(line =>
-      line.every(id => squares[id].completed)
-    );
+export function BingoCard({ title = '2026 BINGO', theme = 'minimal-pink', goals = defaultGoals }: BingoCardProps) {
+  const [completed, setCompleted] = useState<Set<number>>(() => new Set([12]));
+  const [completedLines, setCompletedLines] = useState<Set<number>>(new Set());
+  const styles = themeStyles[theme] || themeStyles['minimal-pink'];
 
-    if (completedLines.length > bingoLines.length) {
-      setShowCelebration(true);
-      setTimeout(() => setShowCelebration(false), 1500);
-    }
+  const checkForWin = useCallback((completedCells: Set<number>) => {
+    const newCompletedLines = new Set<number>();
+    winningLines.forEach((line, lineIndex) => {
+      const isLineComplete = line.every((cell) => completedCells.has(cell));
+      if (isLineComplete) {
+        newCompletedLines.add(lineIndex);
+      }
+    });
+    return newCompletedLines;
+  }, []);
 
-    setBingoLines(completedLines);
-  };
+  const triggerCelebration = useCallback((color: string) => {
+    const colors = [color, '#ffffff', color];
+    confetti({
+      particleCount: 100,
+      spread: 70,
+      origin: { y: 0.6 },
+      colors: colors,
+    });
+    setTimeout(() => {
+      confetti({
+        particleCount: 50,
+        angle: 60,
+        spread: 55,
+        origin: { x: 0 },
+        colors: colors,
+      });
+    }, 150);
+    setTimeout(() => {
+      confetti({
+        particleCount: 50,
+        angle: 120,
+        spread: 55,
+        origin: { x: 1 },
+        colors: colors,
+      });
+    }, 300);
+  }, []);
 
-  useEffect(() => {
-    checkBingo();
-  }, [squares]);
-
-  const toggleComplete = (id: number) => {
-    setSquares(prev => 
-      prev.map(sq => sq.id === id ? { ...sq, completed: !sq.completed } : sq)
-    );
-  };
-
-  const isInBingoLine = (id: number) => {
-    return bingoLines.some(line => line.includes(id));
+  const toggleCell = (index: number) => {
+    if (index === 12) return;
+    setCompleted((prev) => {
+      const next = new Set(prev);
+      if (next.has(index)) {
+        next.delete(index);
+      } else {
+        next.add(index);
+      }
+      const newCompletedLines = checkForWin(next);
+      const hadNewWin = [...newCompletedLines].some((line) => !completedLines.has(line));
+      if (hadNewWin) {
+        triggerCelebration(styles.textHex);
+        setCompletedLines(newCompletedLines);
+      } else {
+        setCompletedLines(newCompletedLines);
+      }
+      return next;
+    });
   };
 
   return (
-    <div className="relative">
-      {showCelebration && (
-  <div className="fixed inset-0 flex items-center justify-center z-50 pointer-events-none">
-    <div className="absolute inset-0 bg-black opacity-20" />
-    <h2 className="text-8xl font-bold text-yellow-500 relative z-10" style={{ fontFamily: 'Georgia, serif' }}>
-      Bingo!
-    </h2>
-  </div>
-)}
-      <div className="grid grid-cols-5 gap-2 w-full max-w-2xl aspect-square">
-        {squares.map((square) => (
-          <div
-            key={square.id}
-            onClick={() => !square.isCenter && toggleComplete(square.id)}
-            className={`
-              border-2 border-gray-800 rounded-lg p-4 flex items-center justify-center relative
-              cursor-pointer transition-all hover:scale-105
-              ${square.completed && !square.isCenter ? 'bg-pink-100' : 'bg-white'}
-              ${square.isCenter ? 'bg-yellow-100 cursor-default font-bold' : ''}
-            `}
-          >
-            {square.completed && !square.isCenter && (
-              <svg className="absolute inset-0 w-full h-full" viewBox="0 0 100 100">
-                <line x1="10" y1="10" x2="90" y2="90" stroke="#382830" strokeWidth="4" />
-                <line x1="90" y1="10" x2="10" y2="90" stroke="#3b2630" strokeWidth="4" />
-              </svg>
-            )}
-            
-            {isInBingoLine(square.id) && (
-              <div className="absolute inset-0 border-4 border-pink-500 rounded-lg pointer-events-none" />
-            )}
-            
-            <span className="text-sm font-bold text-gray-900 text-center z-10 relative">
-              {square.text || 'Goal'}
-            </span>
-          </div>
-        ))}
+    <div className={`w-full max-w-md mx-auto p-6 ${styles.card} rounded-lg`}>
+      <h1 className={`text-3xl font-serif font-medium text-center mb-4 ${styles.text} tracking-wide`}>{title}</h1>
+      <div className={`grid grid-cols-5 border ${styles.border}`}>
+        {goals.slice(0, 25).map((goal, index) => {
+          const isCenter = index === 12;
+          const isCompleted = completed.has(index);
+          return (
+            <button
+              key={index}
+              onClick={() => toggleCell(index)}
+              className={`
+                relative aspect-square flex items-center justify-center
+                text-xs font-medium text-center
+                border ${styles.border}
+                transition-all duration-200
+                ${isCompleted && !isCenter ? styles.cellCompleted : 'bg-transparent'}
+                ${styles.cellHover}
+              `}
+            >
+              {isCenter ? (
+                <span className={`text-2xl font-bold ${styles.text}`}>★</span>
+              ) : (
+                <span className={`${styles.text} line-clamp-3 p-1`}>{goal || 'Goal'}</span>
+              )}
+              {!isCenter && isCompleted && (
+                <div className={`absolute inset-0 flex items-center justify-center ${styles.text}`}>
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth={2}
+                    strokeLinecap="round"
+                    className="w-2/3 h-2/3 opacity-60"
+                  >
+                    <path d="M18 6L6 18M6 6l12 12" />
+                  </svg>
+                </div>
+              )}
+            </button>
+          );
+        })}
       </div>
     </div>
   );
